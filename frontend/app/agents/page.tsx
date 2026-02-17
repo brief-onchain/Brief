@@ -24,7 +24,7 @@ import type { BriefResult } from "@/lib/api";
 import { createOnchainAgent, fundOnchainAgent, payAgentRent, withdrawOnchainAgent } from "@/lib/nfaOnchain";
 import { LanguageSwitch } from "@/components/i18n/LanguageSwitch";
 import { useLocale } from "@/components/i18n/LocaleProvider";
-import { pickLocale, toIntlLocale, type LocaleCode, type LocaleTextMap } from "@/lib/i18n";
+import { pickLocale, toIntlLocale, toLocalizedPath, type LocaleCode, type LocaleTextMap } from "@/lib/i18n";
 
 declare global {
   interface Window {
@@ -468,10 +468,10 @@ export default function AgentsPage() {
             </div>
             <div className="flex items-center gap-2">
               <LanguageSwitch />
-              <Link href="/" className="rounded-full border border-white/20 px-3 py-1.5 text-sm text-white/80 hover:bg-white/10">
+              <Link href={toLocalizedPath(locale, "/")} className="rounded-full border border-white/20 px-3 py-1.5 text-sm text-white/80 hover:bg-white/10">
                 {文({ en: "Home", "zh-CN": "返回首页", "zh-TW": "返回首頁", ko: "홈" })}
               </Link>
-              <Link href="/guide" className="rounded-full border border-primary/25 px-3 py-1.5 text-sm text-primary/90 hover:bg-primary/10">
+              <Link href={toLocalizedPath(locale, "/guide")} className="rounded-full border border-primary/25 px-3 py-1.5 text-sm text-primary/90 hover:bg-primary/10">
                 {文({ en: "Guide", "zh-CN": "新手玩法说明", "zh-TW": "新手玩法說明", ko: "가이드" })}
               </Link>
               <button
