@@ -2,7 +2,12 @@ require('@nomiclabs/hardhat-ethers');
 require('@nomicfoundation/hardhat-verify');
 require('@nomicfoundation/hardhat-chai-matchers');
 require('@openzeppelin/hardhat-upgrades');
-require('dotenv').config();
+const path = require('path');
+const dotenv = require('dotenv');
+
+// Prefer workspace root .env, fallback to local contracts/.env
+dotenv.config({ path: path.resolve(__dirname, '../.env') });
+dotenv.config({ path: path.resolve(__dirname, '.env') });
 
 // Load environment variables
 const TESTNET_RPC_URL =
