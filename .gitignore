@@ -1,0 +1,57 @@
+# Dependencies
+node_modules/
+**/node_modules/
+
+# Build outputs
+dist/
+**/dist/
+.next/
+**/.next/
+out/
+coverage/
+*.tsbuildinfo
+contracts/artifacts/
+contracts/cache/
+contracts/typechain-types/
+
+# Runtime logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Environment files (keep templates public)
+.env
+.env.*
+!.env.example
+!env.example
+frontend/.env.local
+frontend/.env.local.*
+backend/.env
+backend/.env.*
+
+# OS / editor files
+.DS_Store
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Internal references / notes
+reference/
+docs/
+.data/
+**/.data/
+artifacts/
+tmp/
+brief-demo-fullpage.png
+
+# Local package manager cache
+.pnpm-store/
+
+# Prevent accidental nested git metadata commits
+frontend/.git/
+
+
+private_key
