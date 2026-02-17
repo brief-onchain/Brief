@@ -7,7 +7,7 @@ import gsap from "gsap";
 import { ArrowRight, Bot, FileSearch, ShieldCheck, Sparkles, Wallet, Wrench } from "lucide-react";
 import { LanguageSwitch } from "@/components/i18n/LanguageSwitch";
 import { useLocale } from "@/components/i18n/LocaleProvider";
-import { pickLocale } from "@/lib/i18n";
+import { pickLocale, toLocalizedPath } from "@/lib/i18n";
 
 export default function GuidePage() {
   const rootRef = useRef<HTMLElement>(null);
@@ -116,10 +116,10 @@ export default function GuidePage() {
             </div>
             <div className="flex items-center gap-2">
               <LanguageSwitch />
-              <Link href="/" className="rounded-full border border-white/20 px-4 py-2 text-sm text-white/80 hover:bg-white/10">
+              <Link href={toLocalizedPath(locale, "/")} className="rounded-full border border-white/20 px-4 py-2 text-sm text-white/80 hover:bg-white/10">
                 {pickLocale(locale, { en: "Back Home", "zh-CN": "返回首页", "zh-TW": "返回首頁", ko: "홈으로" })}
               </Link>
-              <Link href="/agents" className="rounded-full border border-primary/35 bg-primary/15 px-4 py-2 text-sm text-primary hover:bg-primary/22">
+              <Link href={toLocalizedPath(locale, "/agents")} className="rounded-full border border-primary/35 bg-primary/15 px-4 py-2 text-sm text-primary hover:bg-primary/22">
                 {pickLocale(locale, { en: "Open Agent Studio", "zh-CN": "打开 Agent Studio", "zh-TW": "打開 Agent Studio", ko: "Agent Studio 열기" })}
               </Link>
             </div>
@@ -202,7 +202,7 @@ export default function GuidePage() {
               <h3 className="text-lg font-semibold">{pickLocale(locale, { en: "Start Now", "zh-CN": "马上开始", "zh-TW": "馬上開始", ko: "지금 시작" })}</h3>
               <p className="text-sm text-white/65">{pickLocale(locale, { en: "Try standard mode first, then enable paid/onchain features when needed.", "zh-CN": "先体验标准模式；需要时再启用收费与链上玩法。", "zh-TW": "先體驗標準模式；需要時再啟用收費與鏈上玩法。", ko: "먼저 표준 모드를 체험하고 필요 시 유료/온체인 기능을 켜세요." })}</p>
             </div>
-            <Link href="/" className="inline-flex items-center gap-2 rounded-full border border-primary/35 bg-primary/15 px-4 py-2 text-sm text-primary hover:bg-primary/22">
+            <Link href={toLocalizedPath(locale, "/")} className="inline-flex items-center gap-2 rounded-full border border-primary/35 bg-primary/15 px-4 py-2 text-sm text-primary hover:bg-primary/22">
               {pickLocale(locale, { en: "Go to Home", "zh-CN": "去首页输入地址", "zh-TW": "去首頁輸入地址", ko: "홈으로 이동" })}
               <ArrowRight className="h-4 w-4" />
             </Link>
