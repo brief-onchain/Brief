@@ -41,6 +41,9 @@ export interface BriefResult {
       tokenTransferCount24h?: number;
       firstSeenAt?: number;
       lastSeenAt?: number;
+      contractCreator?: string;
+      creationTxHash?: string;
+      isContract?: boolean;
     };
     meme?: {
       topHolderCount?: number;
@@ -48,6 +51,19 @@ export interface BriefResult {
       bundleGroupCount?: number;
       smartMoneySamples?: string[];
       bundleSourceSamples?: string[];
+      topHolderDetails?: Array<{ address: string; pctOfSupply?: number; isNewWallet?: boolean; rank?: number }>;
+      suspiciousHolderCount?: number;
+      suspiciousSamples?: string[];
+      whaleTop1Pct?: number;
+      whaleTop5Pct?: number;
+      whaleTop10Pct?: number;
+      whaleSamples?: string[];
+      devAddress?: string;
+      devInTopHolders?: boolean;
+      deployerAddress?: string;
+      deployerTxHash?: string;
+      newWalletHolderCount?: number;
+      newWalletAddresses?: string[];
     };
   };
   runtime?: {
