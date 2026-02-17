@@ -1,0 +1,77 @@
+{
+  "name": "brief-agent-contracts",
+  "version": "1.0.0",
+  "description": "BRIEF Agent NFT contracts (BAP578-compatible) for onchain agent identity and permissions",
+  "main": "hardhat.config.js",
+  "scripts": {
+    "build": "npx hardhat compile",
+    "compile": "npx hardhat compile",
+    "test": "npx hardhat test",
+    "coverage": "npx hardhat coverage",
+    "deploy": "npx hardhat run scripts/deploy.js",
+    "deploy:localhost": "npx hardhat run scripts/deploy.js --network localhost",
+    "deploy:testnet": "npx hardhat run scripts/deploy.js --network testnet",
+    "deploy:mainnet": "npx hardhat run scripts/deploy.js --network mainnet",
+    "upgrade": "npx hardhat run scripts/upgrade.js",
+    "upgrade:testnet": "npx hardhat run scripts/upgrade.js --network testnet",
+    "upgrade:mainnet": "npx hardhat run scripts/upgrade.js --network mainnet",
+    "interact": "npx hardhat run scripts/interact-nfa.js",
+    "interact:localhost": "npx hardhat run scripts/interact-nfa.js --network localhost",
+    "interact:testnet": "npx hardhat run scripts/interact-nfa.js --network testnet",
+    "interact:mainnet": "npx hardhat run scripts/interact-nfa.js --network mainnet",
+    "verify": "npx hardhat run scripts/verify.js",
+    "verify:testnet": "npx hardhat run scripts/verify.js --network testnet",
+    "verify:mainnet": "npx hardhat run scripts/verify.js --network mainnet",
+    "verify:manual": "npx hardhat run scripts/verify-manual.js",
+    "verify:manual:testnet": "npx hardhat run scripts/verify-manual.js --network testnet",
+    "node": "npx hardhat node",
+    "clean": "npx hardhat clean",
+    "size": "npx hardhat size-contracts",
+    "lint": "solhint 'contracts/**/*.sol'",
+    "format": "prettier --write 'contracts/**/*.sol' 'scripts/**/*.js' 'test/**/*.js'"
+  },
+  "keywords": [
+    "blockchain",
+    "nft",
+    "erc721",
+    "agent",
+    "ai-agent",
+    "bnb-chain",
+    "smart-contract",
+    "ethereum",
+    "web3",
+    "upgradeable"
+  ],
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "@chainlink/contracts": "^1.4.0",
+    "@nomicfoundation/hardhat-chai-matchers": "^1.0.6",
+    "@nomicfoundation/hardhat-verify": "^2.0.12",
+    "@nomiclabs/hardhat-ethers": "^2.2.3",
+    "@openzeppelin/contracts": "^4.9.6",
+    "@openzeppelin/contracts-upgradeable": "^4.9.6",
+    "@openzeppelin/hardhat-upgrades": "^1.28.0",
+    "chai": "^4.3.7",
+    "dotenv": "^16.5.0",
+    "ethers": "^5.7.2",
+    "hardhat": "^2.24.2",
+    "hardhat-contract-sizer": "^2.10.0",
+    "hardhat-gas-reporter": "^1.0.10",
+    "prettier": "^3.5.3",
+    "prettier-plugin-solidity": "^2.0.0",
+    "solhint": "^5.1.0",
+    "solidity-coverage": "^0.8.13"
+  },
+  "dependencies": {
+    "@nomicfoundation/hardhat-network-helpers": "^1.0.12",
+    "merkletreejs": "^0.5.2"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ChatAndBuild/non-fungible-agents-BAP-578.git"
+  },
+  "engines": {
+    "node": ">=14.0.0"
+  }
+}
