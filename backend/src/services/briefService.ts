@@ -58,6 +58,9 @@ export type BriefResult = {
       tokenTransferCount24h?: number;
       firstSeenAt?: number;
       lastSeenAt?: number;
+      contractCreator?: string;
+      creationTxHash?: string;
+      isContract?: boolean;
     };
     meme?: {
       topHolderCount?: number;
@@ -65,6 +68,19 @@ export type BriefResult = {
       bundleGroupCount?: number;
       smartMoneySamples?: string[];
       bundleSourceSamples?: string[];
+      topHolderDetails?: Array<{ address: string; pctOfSupply?: number; isNewWallet?: boolean; rank?: number }>;
+      suspiciousHolderCount?: number;
+      suspiciousSamples?: string[];
+      whaleTop1Pct?: number;
+      whaleTop5Pct?: number;
+      whaleTop10Pct?: number;
+      whaleSamples?: string[];
+      devAddress?: string;
+      devInTopHolders?: boolean;
+      deployerAddress?: string;
+      deployerTxHash?: string;
+      newWalletHolderCount?: number;
+      newWalletAddresses?: string[];
     };
   };
   runtime?: {
@@ -119,6 +135,19 @@ type ModuleMeme = {
   bundleGroupCount: number;
   smartMoneySamples: string[];
   bundleSourceSamples: string[];
+  topHolderDetails: Array<{ address: string; pctOfSupply?: number; isNewWallet?: boolean; rank?: number }>;
+  suspiciousHolderCount: number;
+  suspiciousSamples: string[];
+  whaleTop1Pct?: number;
+  whaleTop5Pct?: number;
+  whaleTop10Pct?: number;
+  whaleSamples: string[];
+  devAddress?: string;
+  devInTopHolders?: boolean;
+  deployerAddress?: string;
+  deployerTxHash?: string;
+  newWalletHolderCount?: number;
+  newWalletAddresses: string[];
 } | null;
 
 type MoralisOwner = {
@@ -155,6 +184,32 @@ function normalizeBearer(v: string): string {
   const t = String(v || "").trim();
   if (!t) return "";
   return t.toLowerCase().startsWith("bearer ") ? t : `Bearer ${t}`;
+}
+
+function toBigIntOrNull(v: unknown): bigint | null {
+  try {
+    if (typeof v === "bigint") return v;
+    const s = String(v || "").trim();
+    if (!s) return null;
+    return BigInt(s);
+  } catch {
+    return null;
+  }
+}
+
+function toNumberOrNull(v: unknown): number | null {
+  if (typeof v === "number" && Number.isFinite(v)) return v;
+  if (typeof v === "string" && v.trim()) {
+    const n = Number(v);
+    if (Number.isFinite(n)) return n;
+  }
+  return null;
+}
+
+function shortAddr(addr: string): string {
+  const s = String(addr || "").trim();
+  if (!s) return s;
+  return `${s.slice(0, 6)}…${s.slice(-4)}`;
 }
 
 function withTimeout<T>(p: Promise<T>, ms: number): Promise<T> {
@@ -916,6 +971,29 @@ async function runIntelModule(args: { resolved: ModuleResolve; lang: Locale; fin
         }),
       });
     }
+    if (resolved.type === "contract" && bscscan.contractCreator && isAddress(bscscan.contractCreator, { strict: false })) {
+      findings.push({
+        type: "info",
+        text: 文(lang, {
+          en: `Contract creator: ${shortAddr(bscscan.contractCreator)}`,
+          "zh-CN": `合约创建者：${shortAddr(bscscan.contractCreator)}`,
+          "zh-TW": `合約建立者：${shortAddr(bscscan.contractCreator)}`,
+          ko: `컨트랙트 생성자: ${shortAddr(bscscan.contractCreator)}`,
+        }),
+      });
+      evidence.push({
+        label: "Creator",
+        url: `https://bscscan.com/address/${bscscan.contractCreator}`,
+        value: shortAddr(bscscan.contractCreator),
+      });
+    }
+    if (resolved.type === "contract" && bscscan.creationTxHash) {
+      evidence.push({
+        label: "Creation Tx",
+        url: `https://bscscan.com/tx/${bscscan.creationTxHash}`,
+        value: shortAddr(bscscan.creationTxHash),
+      });
+    }
   }
 
   return { frMeta, frAlt, frSource, mrTags, mrSource, arkham, arkhamSource, gmgn, gmgnSource, bscscan, bscscanSource };
@@ -926,16 +1004,43 @@ async function runMemeModule(args: {
   lang: Locale;
   findings: Finding[];
   evidence: Evidence[];
+  intel: ModuleIntel;
 }): Promise<ModuleMeme> {
-  const { resolved, lang, findings, evidence } = args;
+  const { resolved, lang, findings, evidence, intel } = args;
   if (!resolved.isContract) return null;
   if (!envStr("MORALIS_API_KEY")) return null;
 
   const ownersResp = await withTimeout(
-    fetchMoralisTokenOwners({ chain: "bsc", tokenAddress: resolved.address, limit: 60, order: "DESC" }),
+    fetchMoralisTokenOwners({ chain: "bsc", tokenAddress: resolved.address, limit: 80, order: "DESC" }),
     3500
   ).catch(() => null);
   if (!ownersResp?.owners?.length) return null;
+
+  const metaResp = await withTimeout(fetchMoralisTokenMetadata({ chain: "bsc", tokenAddress: resolved.address }), 2800).catch(() => null);
+  const decimals = Math.max(0, Math.min(36, toNumberOrNull(metaResp?.decimals) ?? 18));
+  const supplyFromCirculating = toNumberOrNull(metaResp?.circulating_supply);
+  const supplyFromFormatted = toNumberOrNull(metaResp?.total_supply_formatted);
+  let totalSupplyUi = supplyFromCirculating ?? supplyFromFormatted ?? undefined;
+  if (!totalSupplyUi) {
+    const totalRaw = toBigIntOrNull(metaResp?.total_supply);
+    if (totalRaw !== null) {
+      try {
+        const n = Number(formatUnits(totalRaw, decimals));
+        if (Number.isFinite(n) && n > 0) totalSupplyUi = n;
+      } catch {
+        // noop
+      }
+    }
+  }
+
+  const balanceRawByAddr = new Map<string, bigint>();
+  for (const o of ownersResp.owners) {
+    const addr = String(o.ownerAddress || "").toLowerCase();
+    if (!isAddress(addr, { strict: false })) continue;
+    const bal = toBigIntOrNull(o.balance);
+    if (bal === null || bal < 0n) continue;
+    balanceRawByAddr.set(addr, bal);
+  }
 
   const unique = new Set<string>();
   const candidates = ownersResp.owners
@@ -956,9 +1061,46 @@ async function runMemeModule(args: {
   const topHolders = candidates.filter((_, i) => !isContractFlags[i]).slice(0, 12);
   if (!topHolders.length) return null;
 
+  const holderAmountUi = new Map<string, number>();
+  for (const holder of topHolders) {
+    const bal = balanceRawByAddr.get(holder);
+    if (bal === undefined) continue;
+    try {
+      const n = Number(formatUnits(bal, decimals));
+      if (Number.isFinite(n) && n >= 0) holderAmountUi.set(holder, n);
+    } catch {
+      // noop
+    }
+  }
+
+  const whaleTop = topHolders
+    .map((addr) => ({ addr, amount: holderAmountUi.get(addr) || 0 }))
+    .sort((a, b) => b.amount - a.amount);
+  const whaleTop1 = whaleTop[0]?.amount || 0;
+  const whaleTop5 = whaleTop.slice(0, 5).reduce((acc, x) => acc + x.amount, 0);
+  const whaleTop10 = whaleTop.slice(0, 10).reduce((acc, x) => acc + x.amount, 0);
+  const whaleTop1Pct = totalSupplyUi && totalSupplyUi > 0 ? (whaleTop1 / totalSupplyUi) * 100 : undefined;
+  const whaleTop5Pct = totalSupplyUi && totalSupplyUi > 0 ? (whaleTop5 / totalSupplyUi) * 100 : undefined;
+  const whaleTop10Pct = totalSupplyUi && totalSupplyUi > 0 ? (whaleTop10 / totalSupplyUi) * 100 : undefined;
+  const whaleSamples = whaleTop
+    .slice(0, 4)
+    .map((x) => {
+      const pct = totalSupplyUi && totalSupplyUi > 0 ? ((x.amount / totalSupplyUi) * 100).toFixed(2) : null;
+      return pct ? `${shortAddr(x.addr)}(${pct}%)` : shortAddr(x.addr);
+    })
+    .filter(Boolean);
+
   const frHolderMeta = await mapLimit(topHolders, 4, async (addr) =>
     withTimeout(fetchFrontrunWalletMetadata({ chain: "BSC", address: addr }), 1200).catch(() => null)
   );
+  const txCounts = await mapLimit(topHolders, 5, async (addr) => {
+    const c = await resolved.client.getTransactionCount({ address: addr as `0x${string}` }).catch(() => null);
+    return typeof c === "number" ? c : null;
+  });
+  const txCountByHolder = new Map<string, number | null>();
+  for (let i = 0; i < topHolders.length; i++) {
+    txCountByHolder.set(topHolders[i], txCounts[i] ?? null);
+  }
 
   const smartIdx: number[] = [];
   for (let i = 0; i < frHolderMeta.length; i++) {
@@ -978,6 +1120,7 @@ async function runMemeModule(args: {
   let cursor: string | undefined;
   let pageCount = 0;
   const holderSet = new Set(topHolders.map((x) => x.toLowerCase()));
+  const zeroAddress = "0x0000000000000000000000000000000000000000";
   while (pageCount < 6 && firstFundingByHolder.size < holderSet.size) {
     pageCount += 1;
     const page = await withTimeout(
@@ -997,6 +1140,7 @@ async function runMemeModule(args: {
       if (firstFundingByHolder.has(to)) continue;
       const from = t.fromAddress.toLowerCase();
       if (!isAddress(from, { strict: false })) continue;
+      if (from === zeroAddress) continue;
       firstFundingByHolder.set(to, from);
     }
     cursor = page.cursor;
@@ -1005,11 +1149,49 @@ async function runMemeModule(args: {
 
   const bySource = new Map<string, number>();
   for (const src of firstFundingByHolder.values()) bySource.set(src, (bySource.get(src) ?? 0) + 1);
+  const topFundingSource = [...bySource.entries()].sort((a, b) => b[1] - a[1])[0]?.[0];
   const bundledSources = [...bySource.entries()]
     .filter(([, c]) => c >= 2)
     .sort((a, b) => b[1] - a[1])
     .slice(0, 4);
   const bundleSourceSamples = bundledSources.map(([s]) => `${s.slice(0, 6)}…${s.slice(-4)}`);
+
+  const suspiciousIdx: number[] = [];
+  const riskyKeywords = ["scam", "phish", "drain", "rug", "bot", "sybil", "exploit", "hacker"];
+  let newWalletHolderCount = 0;
+  const newWalletSet = new Set<string>();
+  for (let i = 0; i < topHolders.length; i++) {
+    const holder = topHolders[i];
+    const txCount = txCounts[i];
+    const isNewWallet = typeof txCount === "number" && txCount <= 3;
+    if (isNewWallet) {
+      newWalletHolderCount += 1;
+      newWalletSet.add(holder);
+    }
+
+    const source = firstFundingByHolder.get(holder);
+    const sharedFunding = Boolean(source && (bySource.get(source) || 0) >= 2);
+    const meta = frHolderMeta[i];
+    const tagHay = `${meta?.primaryLabel || ""} ${(meta?.tags || []).join(" ")}`.toLowerCase();
+    const riskyTag = riskyKeywords.some((k) => tagHay.includes(k));
+    const tagBotLike = ["sniper", "bot", "cluster", "sybil"].some((k) => tagHay.includes(k));
+    const suspiciousScore = Number(isNewWallet) + Number(sharedFunding) + Number(riskyTag || tagBotLike);
+    if (suspiciousScore >= 2) suspiciousIdx.push(i);
+  }
+
+  const suspiciousSamples = suspiciousIdx.slice(0, 4).map((i) => shortAddr(topHolders[i] || ""));
+  const topHolderDetails = whaleTop.slice(0, 10).map((x, idx) => ({
+    address: x.addr,
+    pctOfSupply: totalSupplyUi && totalSupplyUi > 0 ? (x.amount / totalSupplyUi) * 100 : undefined,
+    isNewWallet: newWalletSet.has(x.addr),
+    rank: idx + 1,
+  }));
+  const newWalletAddresses = topHolderDetails.filter((x) => x.isNewWallet).map((x) => x.address);
+  const deployerAddress =
+    intel.bscscan?.contractCreator && isAddress(intel.bscscan.contractCreator, { strict: false }) ? intel.bscscan.contractCreator.toLowerCase() : undefined;
+  const deployerTxHash = intel.bscscan?.creationTxHash || undefined;
+  const devAddress = deployerAddress || bundledSources[0]?.[0] || topFundingSource;
+  const devInTopHolders = Boolean(devAddress && topHolders.includes(devAddress.toLowerCase()));
 
   findings.push({
     type: "info",
@@ -1020,6 +1202,18 @@ async function runMemeModule(args: {
       ko: `Meme 홀더 구조 스캔: 상위 주소 ${topHolders.length}개를 분석했습니다 (명백한 컨트랙트 주소 제외)`,
     }),
   });
+
+  if (typeof whaleTop10Pct === "number") {
+    findings.push({
+      type: whaleTop10Pct >= 45 ? "warning" : whaleTop10Pct >= 25 ? "info" : "success",
+      text: 文(lang, {
+        en: `Whale concentration (Top10): ${whaleTop10Pct.toFixed(2)}% of supply${whaleSamples.length ? ` (${joinHumanList(lang, whaleSamples)})` : ""}`,
+        "zh-CN": `Whale 持仓集中度（Top10）：${whaleTop10Pct.toFixed(2)}%${whaleSamples.length ? `（${joinHumanList(lang, whaleSamples)}）` : ""}`,
+        "zh-TW": `Whale 持倉集中度（Top10）：${whaleTop10Pct.toFixed(2)}%${whaleSamples.length ? `（${joinHumanList(lang, whaleSamples)}）` : ""}`,
+        ko: `Whale 집중도(Top10): ${whaleTop10Pct.toFixed(2)}%${whaleSamples.length ? ` (${joinHumanList(lang, whaleSamples)})` : ""}`,
+      }),
+    });
+  }
 
   if (smartIdx.length > 0) {
     const sampleText = joinHumanList(lang, smartMoneySamples);
@@ -1058,7 +1252,68 @@ async function runMemeModule(args: {
     });
   }
 
+  if (suspiciousIdx.length > 0) {
+    const sampleText = joinHumanList(lang, suspiciousSamples);
+    findings.push({
+      type: "warning",
+      text: 文(lang, {
+        en: `Suspicious holder cluster: ${suspiciousIdx.length} addresses show multi-factor anomalies${suspiciousSamples.length ? ` (${sampleText})` : ""}`,
+        "zh-CN": `可疑地址聚类：${suspiciousIdx.length} 个地址出现多信号异常${suspiciousSamples.length ? `（${sampleText}）` : ""}`,
+        "zh-TW": `可疑地址聚類：${suspiciousIdx.length} 個地址出現多信號異常${suspiciousSamples.length ? `（${sampleText}）` : ""}`,
+        ko: `의심 주소 군집: ${suspiciousIdx.length}개 주소에서 다중 이상 신호가 감지됨${suspiciousSamples.length ? ` (${sampleText})` : ""}`,
+      }),
+    });
+  }
+
+  if (newWalletHolderCount >= Math.max(3, Math.ceil(topHolders.length * 0.33))) {
+    findings.push({
+      type: "warning",
+      text: 文(lang, {
+        en: `New-wallet ratio is high: ${newWalletHolderCount}/${topHolders.length}`,
+        "zh-CN": `新钱包占比较高：${newWalletHolderCount}/${topHolders.length}`,
+        "zh-TW": `新錢包占比較高：${newWalletHolderCount}/${topHolders.length}`,
+        ko: `신규 지갑 비율이 높습니다: ${newWalletHolderCount}/${topHolders.length}`,
+      }),
+    });
+  }
+
+  if (deployerAddress) {
+    findings.push({
+      type: devInTopHolders ? "warning" : "info",
+      text: 文(lang, {
+        en: `Dev trace (lite): deployer ${shortAddr(deployerAddress)}${devInTopHolders ? " is also in top holders" : ""}`,
+        "zh-CN": `Dev Trace（轻量）：部署者 ${shortAddr(deployerAddress)}${devInTopHolders ? " 同时位于 Top 持币地址" : ""}`,
+        "zh-TW": `Dev Trace（輕量）：部署者 ${shortAddr(deployerAddress)}${devInTopHolders ? " 同時位於 Top 持幣地址" : ""}`,
+        ko: `Dev Trace(라이트): 배포자 ${shortAddr(deployerAddress)}${devInTopHolders ? "가 상위 홀더에도 포함됩니다" : ""}`,
+      }),
+    });
+  } else if (devAddress) {
+    findings.push({
+      type: "info",
+      text: 文(lang, {
+        en: `Dev trace (lite): inferred funding hub ${shortAddr(devAddress)} (needs manual verification)`,
+        "zh-CN": `Dev Trace（轻量）：推断资金中枢 ${shortAddr(devAddress)}（建议手动复核）`,
+        "zh-TW": `Dev Trace（輕量）：推斷資金中樞 ${shortAddr(devAddress)}（建議手動複核）`,
+        ko: `Dev Trace(라이트): 자금 허브 추정 ${shortAddr(devAddress)} (수동 검증 필요)`,
+      }),
+    });
+  }
+
   evidence.push({ label: "Token Holders", url: `https://bscscan.com/token/${resolved.address}#balances` });
+  if (deployerAddress) {
+    evidence.push({
+      label: "Creator",
+      url: `https://bscscan.com/address/${deployerAddress}`,
+      value: shortAddr(deployerAddress),
+    });
+  }
+  if (deployerTxHash) {
+    evidence.push({
+      label: "Creation Tx",
+      url: `https://bscscan.com/tx/${deployerTxHash}`,
+      value: shortAddr(deployerTxHash),
+    });
+  }
 
   return {
     topHolderCount: topHolders.length,
@@ -1066,6 +1321,19 @@ async function runMemeModule(args: {
     bundleGroupCount: bundledSources.length,
     smartMoneySamples,
     bundleSourceSamples,
+    topHolderDetails,
+    suspiciousHolderCount: suspiciousIdx.length,
+    suspiciousSamples,
+    whaleTop1Pct,
+    whaleTop5Pct,
+    whaleTop10Pct,
+    whaleSamples,
+    devAddress,
+    devInTopHolders,
+    deployerAddress,
+    deployerTxHash,
+    newWalletHolderCount,
+    newWalletAddresses,
   };
 }
 
@@ -1090,6 +1358,19 @@ function runRiskModule(args: { resolved: ModuleResolve; dex: DexMeta; intel: Mod
   }
   if ((meme?.bundleGroupCount || 0) > 0) {
     score += Math.min(16, 6 + (meme?.bundleGroupCount || 0) * 4);
+  }
+  if (typeof meme?.whaleTop10Pct === "number") {
+    if (meme.whaleTop10Pct >= 45) score += 14;
+    else if (meme.whaleTop10Pct >= 25) score += 8;
+  }
+  if ((meme?.suspiciousHolderCount || 0) > 0) {
+    score += Math.min(18, 5 + (meme?.suspiciousHolderCount || 0) * 4);
+  }
+  if (meme?.devInTopHolders) {
+    score += 10;
+  }
+  if ((meme?.newWalletHolderCount || 0) >= 4) {
+    score += 6;
   }
   const arkhamType = String(intel.arkham?.entityType || "").toLowerCase();
   if (arkhamType && ["mixer", "hacker", "exploit", "sanctioned", "scammer", "phishing"].some((k) => arkhamType.includes(k))) {
@@ -1176,6 +1457,39 @@ function defaultNarrative(args: {
         "zh-CN": `Top 持币地址存在 ${meme?.bundleGroupCount} 组同源入金分发，需重点复核是否为同团体地址。`,
         "zh-TW": `Top 持幣地址存在 ${meme?.bundleGroupCount} 組同源入金分發，需重點復核是否為同團體地址。`,
         ko: `상위 홀더에서 ${meme?.bundleGroupCount}개의 동일 자금원 그룹이 확인되었습니다. 동일 군집 여부를 중점 검증하세요.`,
+      })
+    );
+  }
+
+  if ((meme?.suspiciousHolderCount || 0) > 0) {
+    explainParts.push(
+      文(lang, {
+        en: `Suspicious holder cluster detected: ${meme?.suspiciousHolderCount} addresses have combined anomaly signals.`,
+        "zh-CN": `检测到可疑地址聚类：${meme?.suspiciousHolderCount} 个地址出现组合异常信号。`,
+        "zh-TW": `檢測到可疑地址聚類：${meme?.suspiciousHolderCount} 個地址出現組合異常信號。`,
+        ko: `의심 주소 군집 감지: ${meme?.suspiciousHolderCount}개 주소에서 복합 이상 신호가 확인되었습니다.`,
+      })
+    );
+  }
+
+  if (typeof meme?.whaleTop10Pct === "number") {
+    explainParts.push(
+      文(lang, {
+        en: `Whale concentration (Top10) is ${meme.whaleTop10Pct.toFixed(2)}%, which can amplify volatility.`,
+        "zh-CN": `Whale 集中度（Top10）约为 ${meme.whaleTop10Pct.toFixed(2)}%，会放大价格波动。`,
+        "zh-TW": `Whale 集中度（Top10）約為 ${meme.whaleTop10Pct.toFixed(2)}%，會放大價格波動。`,
+        ko: `Whale 집중도(Top10)는 ${meme.whaleTop10Pct.toFixed(2)}%로, 변동성을 키울 수 있습니다.`,
+      })
+    );
+  }
+
+  if (meme?.devAddress) {
+    explainParts.push(
+      文(lang, {
+        en: `Dev trace (lite) points to ${shortAddr(meme.devAddress)}${meme.devInTopHolders ? ", and this address is also in top holders." : "."}`,
+        "zh-CN": `Dev Trace（轻量）指向 ${shortAddr(meme.devAddress)}${meme.devInTopHolders ? "，且该地址位于 Top 持币地址中。" : "。"} `,
+        "zh-TW": `Dev Trace（輕量）指向 ${shortAddr(meme.devAddress)}${meme.devInTopHolders ? "，且該地址位於 Top 持幣地址中。" : "。"} `,
+        ko: `Dev Trace(라이트) 결과 ${shortAddr(meme.devAddress)}${meme.devInTopHolders ? " 주소가 상위 홀더에도 포함됩니다." : "로 추정됩니다."}`,
       })
     );
   }
@@ -1479,12 +1793,12 @@ export async function analyzeBrief(args: { query: string; lang: Locale }): Promi
   const resolved = await runResolveModule({ query: args.query, lang: args.lang });
   evidence.push({ label: "BscScan", url: `https://bscscan.com/address/${resolved.address}` });
 
-  const [tokenMeta, dex, intel, meme] = await Promise.all([
-    runContractModule({ resolved, lang: args.lang, findings, evidence }),
+  const tokenMeta = await runContractModule({ resolved, lang: args.lang, findings, evidence });
+  const [dex, intel] = await Promise.all([
     runMarketModule({ resolved, lang: args.lang, findings, evidence }),
     runIntelModule({ resolved, lang: args.lang, findings, evidence }),
-    runMemeModule({ resolved, lang: args.lang, findings, evidence }),
   ]);
+  const meme = await runMemeModule({ resolved, lang: args.lang, findings, evidence, intel });
 
   const score = runRiskModule({ resolved, dex, intel, meme });
   const fallback = defaultNarrative({ lang: args.lang, score, resolved, dex, meme });
@@ -1572,6 +1886,9 @@ export async function analyzeBrief(args: { query: string; lang: Locale }): Promi
             tokenTransferCount24h: intel.bscscan.tokenTransferCount24h,
             firstSeenAt: intel.bscscan.firstTxTimeSec,
             lastSeenAt: intel.bscscan.lastTxTimeSec,
+            contractCreator: intel.bscscan.contractCreator,
+            creationTxHash: intel.bscscan.creationTxHash,
+            isContract: intel.bscscan.isContract,
           }
         : undefined,
       meme: meme || undefined,
