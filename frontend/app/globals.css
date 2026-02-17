@@ -1,0 +1,140 @@
+@import "tailwindcss";
+
+@theme {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --radius: var(--radius);
+
+  --font-sans: var(--font-ibm-plex-sans), ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
+  --font-heading: var(--font-ibm-plex-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-ibm-plex-mono), ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+
+  --animate-accordion-down: accordion-down 0.2s ease-out;
+  --animate-accordion-up: accordion-up 0.2s ease-out;
+
+  @keyframes accordion-down {
+    from { height: 0; }
+    to { height: var(--radix-accordion-content-height); }
+  }
+  @keyframes accordion-up {
+    from { height: var(--radix-accordion-content-height); }
+    to { height: 0; }
+  }
+}
+
+/*
+  The default border color has changed to `currentColor` in Tailwind CSS v4,
+  so we've added these compatibility styles to make sure everything still
+  looks the same as it did with Tailwind CSS v3.
+
+  If we ever want to remove these styles, we need to add an explicit border
+  color utility to any element that depends on these defaults.
+*/
+@layer base {
+  *,
+  ::after,
+  ::before,
+  ::backdrop,
+  ::file-selector-button {
+    border-color: var(--color-gray-200, currentColor);
+  }
+}
+
+@layer utilities {
+  :root {
+    --background: #040A1D;
+    --foreground: #F4F7FF;
+
+    --card: #0B1430;
+    --card-foreground: #F4F7FF;
+
+    --popover: #0B1430;
+    --popover-foreground: #F4F7FF;
+
+    --primary: #F0C41A;
+    --primary-foreground: #1A170B;
+
+    --secondary: #F7F175;
+    --secondary-foreground: #1B180B;
+
+    --muted: #101B39;
+    --muted-foreground: #A2AECB;
+
+    --accent: #101A36;
+    --accent-foreground: #F4F7FF;
+
+    --destructive: #FF4D66;
+    --destructive-foreground: #FFFFFF;
+
+    --border: #1A2C56;
+    --input: #1A2C56;
+    --ring: #F0C41A;
+
+    --radius: 0.625rem;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+    font-feature-settings: "rlig" 1, "calt" 1;
+    text-rendering: geometricPrecision;
+  }
+}
+
+@layer utilities {
+  .brief-bg {
+    position: relative;
+  }
+  .brief-bg::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: -1;
+    background:
+      radial-gradient(1200px 620px at 16% 10%, color-mix(in oklab, var(--primary) 24%, transparent), transparent 62%),
+      radial-gradient(980px 560px at 84% 16%, color-mix(in oklab, var(--secondary) 17%, transparent), transparent 62%),
+      radial-gradient(900px 760px at 48% 86%, rgba(9, 20, 48, 0.78), transparent 70%),
+      linear-gradient(180deg, rgba(255, 236, 122, 0.05), rgba(7, 14, 33, 0.8) 48%, rgba(3, 7, 18, 0.98));
+  }
+  .brief-bg::after {
+    content: "";
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: -1;
+    opacity: 0.24;
+    background-image:
+      linear-gradient(to right, rgba(242, 203, 54, 0.16) 1px, transparent 1px),
+      linear-gradient(to bottom, rgba(116, 144, 205, 0.14) 1px, transparent 1px),
+      repeating-linear-gradient(120deg, rgba(255, 235, 130, 0.12) 0 1px, transparent 1px 34px);
+    background-size: 92px 92px, 92px 92px, 220px 220px;
+    mask-image: radial-gradient(65% 62% at 52% 26%, black, transparent 82%);
+  }
+  .logo-halo {
+    filter:
+      drop-shadow(0 0 12px rgba(242, 203, 54, 0.48))
+      drop-shadow(0 0 30px rgba(242, 203, 54, 0.22));
+  }
+}
