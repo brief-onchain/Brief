@@ -44,3 +44,34 @@ export function localeLabel(locale: LocaleCode): string {
 export function isZhLocale(locale: LocaleCode): boolean {
   return locale === "zh-CN" || locale === "zh-TW";
 }
+
+export function isLocaleCode(input?: string | null): input is LocaleCode {
+  return SUPPORTED_LOCALES.includes(String(input || "") as LocaleCode);
+}
+
+export function extractLocaleFromPathname(pathname: string): LocaleCode | null {
+  const first = String(pathname || "")
+    .split("/")
+    .filter(Boolean)[0];
+  if (!first) return null;
+  return isLocaleCode(first) ? first : null;
+}
+
+export function stripLocalePrefix(pathname: string): string {
+  const raw = String(pathname || "/");
+  const normalized = raw.startsWith("/") ? raw : `/${raw}`;
+  const segs = normalized.split("/").filter(Boolean);
+  if (!segs.length) return "/";
+  if (isLocaleCode(segs[0])) segs.shift();
+  return segs.length ? `/${segs.join("/")}` : "/";
+}
+
+export function withLocalePrefix(pathname: string, locale: LocaleCode): string {
+  const base = stripLocalePrefix(pathname);
+  if (base === "/") return `/${locale}`;
+  return `/${locale}${base}`;
+}
+
+export function toLocalizedPath(locale: LocaleCode, path: string): string {
+  return withLocalePrefix(path, locale);
+}
