@@ -1,0 +1,11 @@
+{
+  "contractName": "BriefAgentNFA",
+  "tokenName": "Brief Agent",
+  "tokenSymbol": "BRIEF",
+  "network": "mainnet",
+  "implementation": "0x7f3733fF33091434d373Ac88b26bde0DE965355e",
+  "proxy": "0x848154756c1b331548AbF18De69F6Ef7f924e884",
+  "treasury": "0x62fFd6f26BA48152098453A05EA5494E0052eaBA",
+  "deployer": "0x62fFd6f26BA48152098453A05EA5494E0052eaBA",
+  "timestamp": "2026-02-17T09:20:43.722Z"
+}
