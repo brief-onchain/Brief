@@ -3,6 +3,9 @@ export type BscScanAddressSummary = {
   tokenTransferCount24h: number;
   firstTxTimeSec?: number;
   lastTxTimeSec?: number;
+  contractCreator?: string;
+  creationTxHash?: string;
+  isContract?: boolean;
   source: "api";
 };
 
@@ -15,6 +18,12 @@ type EtherscanV2Envelope<T> = {
 type ScanTxRow = {
   timeStamp?: string;
   hash?: string;
+};
+
+type ScanContractCreationRow = {
+  contractAddress?: string;
+  contractCreator?: string;
+  txHash?: string;
 };
 
 function envStr(key: string): string {
@@ -52,6 +61,21 @@ function parseResultRows(result: unknown): ScanTxRow[] {
     rows.push({
       timeStamp: typeof rec.timeStamp === "string" ? rec.timeStamp : undefined,
       hash: typeof rec.hash === "string" ? rec.hash : undefined,
+    });
+  }
+  return rows;
+}
+
+function parseContractCreationRows(result: unknown): ScanContractCreationRow[] {
+  if (!Array.isArray(result)) return [];
+  const rows: ScanContractCreationRow[] = [];
+  for (const x of result) {
+    if (!x || typeof x !== "object") continue;
+    const rec = x as Record<string, unknown>;
+    rows.push({
+      contractAddress: typeof rec.contractAddress === "string" ? rec.contractAddress : undefined,
+      contractCreator: typeof rec.contractCreator === "string" ? rec.contractCreator : undefined,
+      txHash: typeof rec.txHash === "string" ? rec.txHash : undefined,
     });
   }
   return rows;
@@ -131,16 +155,58 @@ async function fetchList(args: {
   return null;
 }
 
+async function fetchContractCreation(address: string): Promise<ScanContractCreationRow | null> {
+  const apiKey = readApiKey();
+  if (!apiKey) return null;
+
+  for (const endpoint of resolveEndpoints()) {
+    const url = new URL(endpoint);
+    const isLegacy = /\/api$/i.test(url.pathname) && !/\/v2\/api$/i.test(url.pathname);
+    if (!isLegacy) url.searchParams.set("chainid", "56");
+    url.searchParams.set("module", "contract");
+    url.searchParams.set("action", "getcontractcreation");
+    url.searchParams.set("contractaddresses", address);
+    url.searchParams.set("apikey", apiKey);
+
+    const json = (await fetchJsonWithRetry(url.toString())) as EtherscanV2Envelope<unknown> | null;
+    if (!json || typeof json !== "object") continue;
+
+    if (Array.isArray(json.result)) {
+      const rows = parseContractCreationRows(json.result);
+      const first = rows[0];
+      if (!first) return null;
+      return first;
+    }
+    if (json.result && typeof json.result === "object") {
+      const obj = json.result as Record<string, unknown>;
+      if (Array.isArray(obj.items)) {
+        const rows = parseContractCreationRows(obj.items);
+        return rows[0] || null;
+      }
+      if (Array.isArray(obj.data)) {
+        const rows = parseContractCreationRows(obj.data);
+        return rows[0] || null;
+      }
+    }
+    if (typeof json.result === "string") {
+      if (isNoTxMessage(json.result)) return null;
+      continue;
+    }
+  }
+  return null;
+}
+
 export async function fetchBscScanAddressSummary(address: string): Promise<BscScanAddressSummary | null> {
   const apiKey = readApiKey();
   if (!apiKey) return null;
 
-  const [txDesc, tokenTxDesc, txAscOne] = await Promise.all([
+  const [txDesc, tokenTxDesc, txAscOne, contractCreation] = await Promise.all([
     fetchList({ address, action: "txlist", sort: "desc", offset: 50 }),
     fetchList({ address, action: "tokentx", sort: "desc", offset: 50 }),
     fetchList({ address, action: "txlist", sort: "asc", offset: 1 }),
+    fetchContractCreation(address),
   ]);
-  if (!txDesc && !tokenTxDesc && !txAscOne) return null;
+  if (!txDesc && !tokenTxDesc && !txAscOne && !contractCreation) return null;
 
   const nowSec = Math.floor(Date.now() / 1000);
   const cutoff = nowSec - 24 * 3600;
@@ -158,12 +224,17 @@ export async function fetchBscScanAddressSummary(address: string): Promise<BscSc
 
   const firstTs = parseTsSec(txAscOne?.[0]?.timeStamp) || parseTsSec(txRows[txRows.length - 1]?.timeStamp);
   const lastTs = parseTsSec(txRows[0]?.timeStamp);
+  const creator = String(contractCreation?.contractCreator || "").trim();
+  const txHash = String(contractCreation?.txHash || "").trim();
 
   return {
     txCount24h,
     tokenTransferCount24h,
     firstTxTimeSec: firstTs,
     lastTxTimeSec: lastTs,
+    contractCreator: creator || undefined,
+    creationTxHash: txHash || undefined,
+    isContract: Boolean(creator),
     source: "api",
   };
 }
