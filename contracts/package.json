@@ -19,6 +19,7 @@
     "interact:localhost": "npx hardhat run scripts/interact-nfa.js --network localhost",
     "interact:testnet": "npx hardhat run scripts/interact-nfa.js --network testnet",
     "interact:mainnet": "npx hardhat run scripts/interact-nfa.js --network mainnet",
+    "smoke:mainnet": "npx hardhat run scripts/smoke-mainnet.js --network mainnet",
     "verify": "npx hardhat run scripts/verify.js",
     "verify:testnet": "npx hardhat run scripts/verify.js --network testnet",
     "verify:mainnet": "npx hardhat run scripts/verify.js --network mainnet",
