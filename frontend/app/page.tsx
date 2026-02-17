@@ -11,7 +11,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { LanguageSwitch } from "@/components/i18n/LanguageSwitch";
 import { useLocale } from "@/components/i18n/LocaleProvider";
-import { pickLocale } from "@/lib/i18n";
+import { pickLocale, toLocalizedPath } from "@/lib/i18n";
 
 export default function Home() {
   const [result, setResult] = useState<BriefResult | null>(null);
@@ -156,7 +156,7 @@ export default function Home() {
           <LanguageSwitch />
           <Link
             className="flex items-center gap-2 px-4 py-2 rounded-full bg-card/50 backdrop-blur-md border border-primary/15 hover:bg-card/70 hover:border-primary/35 transition-all text-muted-foreground hover:text-primary text-xs font-semibold"
-            href="/guide"
+            href={toLocalizedPath(locale, "/guide")}
           >
             {guideText}
           </Link>
