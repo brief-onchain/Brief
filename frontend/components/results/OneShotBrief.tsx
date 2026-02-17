@@ -57,6 +57,8 @@ function evidenceName(label: string, locale: LocaleCode): string {
     BscScan: pickLocale(locale, { en: "Explorer", "zh-CN": "链上浏览器", "zh-TW": "鏈上瀏覽器", ko: "익스플로러" }),
     DEX: pickLocale(locale, { en: "Liquidity Pool", "zh-CN": "交易池", "zh-TW": "交易池", ko: "유동성 풀" }),
     Pair: pickLocale(locale, { en: "Pair", "zh-CN": "交易对", "zh-TW": "交易對", ko: "페어" }),
+    Creator: pickLocale(locale, { en: "Creator", "zh-CN": "部署者", "zh-TW": "部署者", ko: "배포자" }),
+    "Creation Tx": pickLocale(locale, { en: "Creation Tx", "zh-CN": "创建交易", "zh-TW": "建立交易", ko: "생성 트랜잭션" }),
     Arkham: pickLocale(locale, { en: "Intel Labels", "zh-CN": "情报标签", "zh-TW": "情報標籤", ko: "인텔 라벨" }),
     GMGN: pickLocale(locale, { en: "Trade Profile", "zh-CN": "交易画像", "zh-TW": "交易畫像", ko: "거래 프로필" }),
     "GMGN Token": pickLocale(locale, { en: "Trade Profile", "zh-CN": "交易画像", "zh-TW": "交易畫像", ko: "거래 프로필" }),
@@ -65,6 +67,12 @@ function evidenceName(label: string, locale: LocaleCode): string {
     "Address Label Source": pickLocale(locale, { en: "Address Profile", "zh-CN": "地址画像", "zh-TW": "地址畫像", ko: "주소 프로필" }),
   };
   return map[label] || label;
+}
+
+function shortAddress(addr: string): string {
+  const s = String(addr || "").trim();
+  if (!s) return s;
+  return `${s.slice(0, 6)}…${s.slice(-4)}`;
 }
 
 function findingIcon(type: BriefResult["findings"][number]["type"]) {
@@ -77,6 +85,14 @@ function findingIcon(type: BriefResult["findings"][number]["type"]) {
 export function OneShotBrief({ result, locale }: { result: BriefResult; locale: LocaleCode }) {
   const bodyRef = useRef<HTMLDivElement>(null);
   const risk = riskMeta(result.riskScore, locale);
+  const meme = result.enrich?.meme;
+  const hasMemeSignals = Boolean(
+    meme &&
+      (typeof meme.whaleTop10Pct === "number" ||
+        (meme.suspiciousHolderCount || 0) > 0 ||
+        Boolean(meme.devAddress) ||
+        (meme.newWalletHolderCount || 0) > 0)
+  );
   const runtimeMode =
     result.runtime?.mode === "enhanced"
       ? pickLocale(locale, { en: "Enhanced", "zh-CN": "增强模式", "zh-TW": "增強模式", ko: "강화 모드" })
@@ -147,6 +163,115 @@ export function OneShotBrief({ result, locale }: { result: BriefResult; locale: 
             ))}
           </div>
         </section>
+
+        {hasMemeSignals ? (
+          <section data-oneshot-block className="rounded-xl border border-white/10 bg-white/5 p-4">
+            <div className="mb-3 text-xs uppercase tracking-widest text-white/60">
+              {pickLocale(locale, { en: "Meme Core Signals", "zh-CN": "Meme 核心信号", "zh-TW": "Meme 核心信號", ko: "Meme 핵심 신호" })}
+            </div>
+            <div className="space-y-2.5 text-sm text-white/90">
+              {typeof meme?.whaleTop10Pct === "number" ? (
+                <div className="rounded-lg bg-black/15 px-3 py-2">
+                  {pickLocale(locale, {
+                    en: `Whale concentration (Top10): ${meme.whaleTop10Pct.toFixed(2)}%`,
+                    "zh-CN": `Whale 集中度（Top10）：${meme.whaleTop10Pct.toFixed(2)}%`,
+                    "zh-TW": `Whale 集中度（Top10）：${meme.whaleTop10Pct.toFixed(2)}%`,
+                    ko: `Whale 집중도(Top10): ${meme.whaleTop10Pct.toFixed(2)}%`,
+                  })}
+                </div>
+              ) : null}
+              {meme?.topHolderDetails?.length ? (
+                <div className="rounded-lg bg-black/15 px-3 py-2">
+                  <div className="mb-2 text-xs text-white/60">
+                    {pickLocale(locale, {
+                      en: "Top Holder Addresses",
+                      "zh-CN": "Top 持币地址",
+                      "zh-TW": "Top 持幣地址",
+                      ko: "상위 홀더 주소",
+                    })}
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    {meme.topHolderDetails.slice(0, 10).map((h) => (
+                      <a
+                        key={h.address}
+                        href={`https://bscscan.com/address/${h.address}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1 rounded-full border border-primary/25 bg-primary/10 px-2.5 py-1 text-xs text-primary hover:bg-primary/20"
+                      >
+                        <span>#{h.rank || "-"}</span>
+                        <span>{shortAddress(h.address)}</span>
+                        {typeof h.pctOfSupply === "number" ? <span className="text-white/65">({h.pctOfSupply.toFixed(2)}%)</span> : null}
+                        {h.isNewWallet ? (
+                          <span className="rounded-full border border-amber-300/35 bg-amber-400/10 px-1.5 py-0.5 text-[10px] text-amber-200">
+                            {pickLocale(locale, { en: "New", "zh-CN": "新钱包", "zh-TW": "新錢包", ko: "신규" })}
+                          </span>
+                        ) : null}
+                        <ExternalLink className="h-3 w-3" />
+                      </a>
+                    ))}
+                  </div>
+                </div>
+              ) : null}
+              {(meme?.suspiciousHolderCount || 0) > 0 ? (
+                <div className="rounded-lg bg-black/15 px-3 py-2">
+                  {pickLocale(locale, {
+                    en: `Suspicious holder cluster: ${meme?.suspiciousHolderCount}`,
+                    "zh-CN": `可疑地址聚类数量：${meme?.suspiciousHolderCount}`,
+                    "zh-TW": `可疑地址聚類數量：${meme?.suspiciousHolderCount}`,
+                    ko: `의심 주소 군집 수: ${meme?.suspiciousHolderCount}`,
+                  })}
+                </div>
+              ) : null}
+              {meme?.devAddress ? (
+                <div className="rounded-lg bg-black/15 px-3 py-2">
+                  {pickLocale(locale, {
+                    en: `Dev trace (lite): ${meme.devAddress}`,
+                    "zh-CN": `Dev Trace（轻量）：${meme.devAddress}`,
+                    "zh-TW": `Dev Trace（輕量）：${meme.devAddress}`,
+                    ko: `Dev Trace(라이트): ${meme.devAddress}`,
+                  })}
+                  {meme.devInTopHolders ? (
+                    <span className="ml-2 text-amber-300">
+                      {pickLocale(locale, {
+                        en: "(also in top holders)",
+                        "zh-CN": "（同时位于 Top 持币地址）",
+                        "zh-TW": "（同時位於 Top 持幣地址）",
+                        ko: "(상위 홀더에도 포함)",
+                      })}
+                    </span>
+                  ) : null}
+                </div>
+              ) : null}
+              {(meme?.newWalletHolderCount || 0) > 0 ? (
+                <div className="rounded-lg bg-black/15 px-3 py-2">
+                  {pickLocale(locale, {
+                    en: `New wallets in top holders: ${meme?.newWalletHolderCount}`,
+                    "zh-CN": `Top 持币中的新钱包：${meme?.newWalletHolderCount}`,
+                    "zh-TW": `Top 持幣中的新錢包：${meme?.newWalletHolderCount}`,
+                    ko: `상위 홀더 내 신규 지갑: ${meme?.newWalletHolderCount}`,
+                  })}
+                  {(meme?.newWalletAddresses?.length || 0) > 0 ? (
+                    <div className="mt-2 flex flex-wrap gap-2">
+                      {(meme?.newWalletAddresses || []).slice(0, 10).map((a) => (
+                        <a
+                          key={a}
+                          href={`https://bscscan.com/address/${a}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1 rounded-full border border-amber-300/35 bg-amber-400/10 px-2.5 py-1 text-xs text-amber-200 hover:bg-amber-400/20"
+                        >
+                          <span>{shortAddress(a)}</span>
+                          <ExternalLink className="h-3 w-3" />
+                        </a>
+                      ))}
+                    </div>
+                  ) : null}
+                </div>
+              ) : null}
+            </div>
+          </section>
+        ) : null}
 
         <section data-oneshot-block className="rounded-xl border border-white/10 bg-white/5 p-4">
           <div className="mb-3 text-xs uppercase tracking-widest text-white/60">
